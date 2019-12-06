@@ -5,7 +5,7 @@ import me.weckle.owncloud.OwnCloud;
 import me.weckle.owncloud.file.FileCopyManager;
 import me.weckle.owncloud.group.ServerGroup;
 import me.weckle.owncloud.group.type.TemplateType;
-import me.weckle.owncloud.server.database.CloudServerDatabaseEntry;
+import me.weckle.owncloud.packet.CloudDatabaseInfoPacket;
 import me.weckle.owncloud.server.state.ServerState;
 import redis.clients.jedis.Jedis;
 
@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Properties;
 
 public class CloudServer {
@@ -61,9 +62,9 @@ public class CloudServer {
                 properties.save(new FileOutputStream(new File("temp/" + group.getName() + "/" + name + "/server.properties")), "Edited by OwnCloud");
                 serverProcess = new ProcessBuilder("./start.sh").directory(new File("temp/" + group.getName() + "/" + name)).start();
                 OwnCloud.sendConsoleMessage("Starte Server§8 [§b" + name + "§8/§b" + port + "§8]");
-                CloudServerDatabaseEntry cloudServerDatabaseEntry = new CloudServerDatabaseEntry(0, ServerState.LOBBY);
+                CloudDatabaseInfoPacket cloudServerDatabaseEntry = new CloudDatabaseInfoPacket(name, 0, group.getMaxPlayers(), ServerState.LOBBY);
                 try(Jedis jedis = OwnCloud.getRedisConnector().getJedisPool().getResource()) {
-                    jedis.set("server:" + name, gson.toJson(cloudServerDatabaseEntry));
+                    jedis.hset("servers", name, gson.toJson(cloudServerDatabaseEntry));
                 }
                 OwnCloud.getRedisConnector().sendMessage("addserver " + name + " " + port);
                 OwnCloud.getRedisConnector().sendMessage("sendadminmessage Testlul");
@@ -98,13 +99,13 @@ public class CloudServer {
 
     public ServerState getServerState() {
         try(Jedis jedis = OwnCloud.getRedisConnector().getJedisPool().getResource()) {
-            return gson.fromJson(jedis.get("server:" + name), CloudServerDatabaseEntry.class).getServerState();
+            return gson.fromJson(jedis.get("server:" + name), CloudDatabaseInfoPacket.class).getServerState();
         }
     }
 
     public int getCurrentPlayers() {
         try(Jedis jedis = OwnCloud.getRedisConnector().getJedisPool().getResource()) {
-            return gson.fromJson(jedis.get("server:" + name), CloudServerDatabaseEntry.class).getCurrentPlayers();
+            return gson.fromJson(jedis.get("server:" + name), CloudDatabaseInfoPacket.class).getCurrentPlayers();
         }
     }
 }
